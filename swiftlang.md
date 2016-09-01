@@ -5,14 +5,14 @@ One nice feature of the swift language is that we can create our own custom oper
 
 The syntax is :
 ```swift
-infix operator |> { associativity left precedence 160 }
+infix operator <MY_OPERATOR> { associativity left precedence 160 }
 
 public func <MY_OPERATOR> <T, U> (left:T, right:T -> U) -> U {
     return right(left)
 }
 ```
 
-Let's say we want to make Swift a little more functional by mimicking the |> (pipe) operator from F#/OCaml/Elm
+Let's say we want to make Swift a little more functional by borrowing the |> (pipe) operator from F#/OCaml/Elm
 
 ```swift
 infix operator |> { associativity left precedence 160 }
