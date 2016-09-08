@@ -17,7 +17,7 @@ Let's say we want to make Swift a little more functional by borrowing the |> (pi
 ```swift
 infix operator |> { associativity left precedence 160 }
 
-public func <MY_OPERATOR> <T, U> (left:T, right:T -> U) -> U {
+public func |> <T, U> (left:T, right:T -> U) -> U {
     return right(left)
 }
 ```
