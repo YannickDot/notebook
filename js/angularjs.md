@@ -101,7 +101,7 @@ export const registerControllers = (module) => {
 
 ```
 
-NOTE : We now have functions to register each controller separately. We will use these in the next step.
+NOTE : We now have functions to register each controller separately. They will be really useful in the next step.
 
 and we only import `registerControllers` from `my-module.js` :
 
@@ -143,6 +143,167 @@ export default myModule
 
 ```
 
-Now that we a have a function that let us register our controllers when we want to, it's time to use Webpack!
+Now that we a have functions that let us register our controllers when we want to, it's time to use Webpack!
 
 #### Code splitting for real
+
+##### Lazy loading templates
+
+As I said in the introduction, code splitting in webpack is triggered using `require.ensure`.
+
+Angular-UI-Router's `$stateProvider` has a really nice way to provide templates programmatically using the [`templateProvider`](http://angular-ui.github.io/ui-router/site/#/api/ui.router.state.$stateProvider) option instead of `template` and `templateURl`
+
+
+
+```js
+{
+  templateProvider: ['$q', function ($q) {
+      return new $q((resolve, reject) => {
+        require.ensure([], () => { // Split point
+            let template = require('path/to/my/template.html');
+            resolve(template);
+        });
+      })
+  }]
+}
+```
+
+Let's define a `onDemandTemplate` function that abstracts the code splitting process for AngularJS templates :
+
+```js
+// utils.js
+
+export const onDemandTemplate = (path) => {
+  return ['$q', function ($q) {
+      return new $q((resolve, reject) => {
+        require.ensure([], () => { // Split point
+            let template = require(path);
+            resolve(template);
+        });
+      })
+  }]
+}
+```
+
+```js
+// my-module.js
+
+import {
+  registerControllers
+} from './controllers.js'
+
+import {
+  onDemandTemplate
+} from './utils.js'
+
+var myModule = angular.module('myModule', [])
+
+const myConfig = ($stateProvider) => {
+
+  $stateProvider
+  .state('index', {
+    url: '/',
+    templateProvider: onDemandTemplate('path/to/my/template.html'),
+    controller: 'IndexCtrl as vm',
+  })
+  .state('listing', {
+    url: '/listing',
+    templateProvider: onDemandTemplate('path/to/my/template.html'),
+    controller: 'ListingCtrl as vm',
+  })
+  .state('about', {
+    url: '/',
+    templateProvider: onDemandTemplate('path/to/my/template.html'),
+    controller: 'AboutCtrl as vm',
+  })
+
+}
+
+myModule.config(myConfig)
+registerControllers(myModule)
+
+export default myModule
+
+```
+
+If we build and run our app in Chrome now, we should see the fetching of small js bundle the first time we access to a route.
+
+SCREENSHOT HERE
+
+
+##### Lazy loading controllers
+
+
+```js
+// utils.js
+
+export const onDemandTemplate = (path) => {
+  return ['$q', ($q) => {
+      return new $q((resolve, reject) => {
+        require.ensure([], () => { // Split point
+            let template = require(path);
+            resolve(template);
+        });
+      })
+  }]
+}
+
+export const onDemandController = (path, ngModule) => {
+  return ['$q', ($q) => {
+    return new $q((res, rej) => {
+      require.ensure([], () => { // Split point
+        let registerer = require(path)
+        registerer.default(ngModule)
+        res(module);
+      });
+    })
+
+  }]
+}
+```
+
+
+```js
+// my-module.js
+
+import {
+  registerControllers
+} from './controllers.js'
+
+import {
+  onDemandTemplate,
+  onDemandController
+} from './utils.js'
+
+var myModule = angular.module('myModule', [])
+
+const myConfig = ($stateProvider) => {
+
+  $stateProvider
+  .state('index', {
+    url: '/',
+    templateProvider: onDemandTemplate('path/to/my/template.html'),
+    controller: 'IndexCtrl as vm',
+    resolve: {
+      'whateverTheName': onDemandController()
+    }
+  })
+  .state('listing', {
+    url: '/listing',
+    templateProvider: onDemandTemplate('path/to/my/template.html'),
+    controller: 'ListingCtrl as vm',
+  })
+  .state('about', {
+    url: '/',
+    templateProvider: onDemandTemplate('path/to/my/template.html'),
+    controller: 'AboutCtrl as vm',
+  })
+
+}
+
+myModule.config(myConfig)
+// No need to use registerControllers now!
+
+export default myModule
+
+```
